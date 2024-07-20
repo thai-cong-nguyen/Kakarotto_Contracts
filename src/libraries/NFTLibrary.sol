@@ -34,7 +34,7 @@ library NFTLibrary {
         uint256 tokenId;
         uint256 rarity;
         uint256 attributeCount;
-        mapping(uint256 => ItemAttribute) attributes;
+        ItemAttribute[] attributes;
     }
     struct ItemAttribute {
         Attribute attribute;

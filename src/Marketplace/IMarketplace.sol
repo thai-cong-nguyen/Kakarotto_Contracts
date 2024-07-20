@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.0;
 
+import "../libraries/MarketplaceLibrary.sol";
+
 interface IKakarottoMarketplace {
     // EVENTS
     event OrderCreated(
@@ -41,11 +43,14 @@ interface IKakarottoMarketplace {
         uint256 expiresAt
     ) external;
 
-    function cancelOrder(address _nftAddress, uint256 _assetId) external;
+    function cancelOrder(
+        address _nftAddress,
+        uint256 _assetId
+    ) external returns (MarketplaceLibrary.Order memory);
 
     function executeOrder(
         address _nftAddress,
         uint256 _assetId,
         uint256 _price
-    ) external payable;
+    ) external payable returns (MarketplaceLibrary.Order memory);
 }

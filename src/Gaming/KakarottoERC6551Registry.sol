@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/Create2.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Create2.sol";
 
 import "./interfaces/IERC6551Registry.sol";
 
@@ -22,7 +22,7 @@ contract KakarottoERC6551Registry is IERC6551Registry {
         address _tokenContract,
         uint256 _tokenId,
         bytes memory _initData
-    ) external payable returns (address) {
+    ) external returns (address) {
         return
             _createAccount(
                 _implementation,
@@ -61,7 +61,7 @@ contract KakarottoERC6551Registry is IERC6551Registry {
 
         if (_initData.length != 0) {
             (bool success, ) = computeAccount.call(_initData);
-            if (!success)  revert AccountCreationFailed();
+            if (!success) revert AccountCreationFailed();
         }
 
         accounts[computeAccount] = true;
@@ -99,7 +99,7 @@ contract KakarottoERC6551Registry is IERC6551Registry {
         uint256 _chainId,
         address _tokenContract,
         uint256 _tokenId
-    ) internal returns (address) {
+    ) internal view returns (address computeAccount) {
         bytes32 bytecodeHash = keccak256(
             _creationCode(
                 _implementation,
@@ -109,7 +109,7 @@ contract KakarottoERC6551Registry is IERC6551Registry {
                 _tokenId
             )
         );
-        return Create2.computeAddress(_salt, bytecodeHash);
+        computeAccount = Create2.computeAddress(_salt, bytecodeHash);
     }
 
     function _creationCode(
@@ -118,13 +118,13 @@ contract KakarottoERC6551Registry is IERC6551Registry {
         uint256 _chainId,
         address _tokenContract,
         uint256 _tokenId
-    ) internal pure returns (bytes memory) {
+    ) internal view returns (bytes memory) {
         return
             abi.encodePacked(
                 // ERC-1167 constructor + header
                 hex"3d60ad80600a3d3981f3363d3d373d3d3d363d73",
                 // implementation address
-                _implementation,
+                implementation,
                 // ERC-1167 footer
                 hex"5af43d82803e903d91602b57fd5bf3",
                 abi.encode(_salt, _chainId, _tokenContract, _tokenId)

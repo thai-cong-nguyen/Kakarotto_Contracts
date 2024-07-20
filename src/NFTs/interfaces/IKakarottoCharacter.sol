@@ -33,6 +33,7 @@ interface IKakarottoCharacter {
 
     function levelUp(
         uint256 _tokenId,
-        uint256 _point
+        address _creator,
+        bytes memory _levelUpNftSignature
     ) external returns (uint256 level);
 }

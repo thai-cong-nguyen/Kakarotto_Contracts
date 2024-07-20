@@ -33,7 +33,7 @@ interface IERC721Bid {
         address _from,
         uint256 _tokenId,
         bytes memory _data
-    ) external pure returns (bytes4);
+    ) external returns (bytes4);
     function placeBid(
         address _tokenAddress,
         uint256 _tokenId,

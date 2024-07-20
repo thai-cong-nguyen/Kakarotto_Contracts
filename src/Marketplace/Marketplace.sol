@@ -2,12 +2,12 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Address.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
 
 import "./IMarketplace.sol";
 import "../libraries/MarketplaceLibrary.sol";
@@ -34,11 +34,8 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
         uint256 _publicationFeeInWei
     ) Ownable(msg.sender) {
         require(
-            _feeToken.verifyCallResultFromTarget(
-                _feeToken,
-                true,
-                IS_CONTRACT
-            ) == IS_CONTRACT,
+            bytes32(_feeToken.verifyCallResultFromTarget(true, IS_CONTRACT)) ==
+                bytes32(IS_CONTRACT),
             "KakarottoMarketplace: Invalid fee token"
         );
         feeToken = IERC20(_feeToken);
@@ -64,11 +61,9 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
 
     modifier verifyERC721(address _nftAddress) {
         require(
-            _nftAddress.verifyCallResultFromTarget(
-                _nftAddress,
-                true,
-                IS_CONTRACT
-            ) == IS_CONTRACT,
+            bytes32(
+                _nftAddress.verifyCallResultFromTarget(true, IS_CONTRACT)
+            ) == bytes32(IS_CONTRACT),
             "KakarottoMarketplace: Address is not a contract"
         );
         require(
@@ -136,7 +131,7 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
     ) internal verifyZeroAmount(_priceInWei) verifyERC721(_nftAddress) {
         address sender = _msgSender();
         IERC721 nftContract = IERC721(_nftAddress);
-        address assetOwner = nftContract.ownerOf(assetId);
+        address assetOwner = nftContract.ownerOf(_assetId);
 
         require(
             assetOwner == sender,
@@ -144,12 +139,12 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
         );
 
         require(
-            nftContract.getApproved(assetId) == address(this) ||
+            nftContract.getApproved(_assetId) == address(this) ||
                 nftContract.isApprovedForAll(sender, address(this)),
             "KakarottoMarketplace: The contract is not approved to manage the asset"
         );
         require(
-            _expiresAt > uint256(block.timestamp).add(THRESHOLD_ORDER_STARTED),
+            _expiresAt > block.timestamp + THRESHOLD_ORDER_STARTED,
             "KakarottoMarketplace: Started time should be starting after created 10 minutes"
         );
 
@@ -164,7 +159,7 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
             )
         );
 
-        orderByAssetId[_assetId][_nftAddress] = MarketplaceLibrary.Order(
+        orderByAssetId[_nftAddress][_assetId] = MarketplaceLibrary.Order(
             orderId,
             sender,
             _nftAddress,
@@ -211,7 +206,7 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
             "KakarottoMarketplace: Only the seller can cancel the order"
         );
 
-        delete orderByAssetId[_assetId][_nftAddress];
+        delete orderByAssetId[_nftAddress][_assetId];
 
         emit OrderCancelled(order.id, _assetId, order.seller, _nftAddress);
 
@@ -225,7 +220,7 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
     )
         internal
         verifyERC721(_nftAddress)
-        verifyZeroAddreszs(_price)
+        verifyZeroAmount(_price)
         returns (MarketplaceLibrary.Order memory)
     {
         address sender = _msgSender();
@@ -247,7 +242,7 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
         );
         IERC721 nftContract = IERC721(_nftAddress);
         require(
-            seller == nftContract.ownerOf(_assetId),
+            order.seller == nftContract.ownerOf(_assetId),
             "KakarottoMarketplace: Seller is no longer the owner"
         );
 
@@ -257,7 +252,7 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
 
         // Transfer fee to owner
         if (feePercentage > 0) {
-            saleFeeAmount = _price.mul(feePercentage).div(PRECISION);
+            saleFeeAmount = _price.mulDiv(feePercentage, PRECISION);
             require(
                 feeToken.transferFrom(sender, owner(), saleFeeAmount),
                 "KakarottoMarketplace: Transfer fee failed"
@@ -266,11 +261,7 @@ contract KakarottoMarketplace is IKakarottoMarketplace, Ownable, Pausable {
 
         // Transfer sale amount to seller
         require(
-            feeToken.transferFrom(
-                sender,
-                order.seller,
-                _price.sub(saleFeeAmount)
-            ),
+            feeToken.transferFrom(sender, order.seller, _price - saleFeeAmount),
             "KakarottoMarketplace: Transfer failed"
         );
 

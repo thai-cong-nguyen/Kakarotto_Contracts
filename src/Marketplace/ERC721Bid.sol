@@ -1,18 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import "lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Pausable.sol";
+import "lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import "lib/openzeppelin-contracts/contracts/utils/Address.sol";
 
 import "../libraries/AuctionLibrary.sol";
+import "./IERC721Bid.sol";
 
-contract ERC721Bid is Ownable, Pausable {
+contract ERC721Bid is IERC721Bid, Ownable, Pausable {
+    using Address for address;
+    using Math for uint256;
+
     uint256 public constant MAX_BID_DURATION = 30 days;
     uint256 public constant MIN_BID_DURATION = 5 minutes;
     bytes4 public constant ERC721_Interface = bytes4(0x80ac58cd);
     bytes4 public constant ERC721_Received = bytes4(0x150b7a02);
+    bytes public constant IS_CONTRACT = bytes("IS_CONTRACT");
     uint256 public constant PRECISION = 1000000;
 
     // tokenAddress => tokenId => bid Index => Bid Information
@@ -52,11 +59,9 @@ contract ERC721Bid is Ownable, Pausable {
 
     modifier verifyERC721(address _nftAddress) {
         require(
-            _nftAddress.verifyCallResultFromTarget(
-                _nftAddress,
-                true,
-                IS_CONTRACT
-            ) == IS_CONTRACT,
+            bytes32(
+                _nftAddress.verifyCallResultFromTarget(true, IS_CONTRACT)
+            ) == bytes32(IS_CONTRACT),
             "KakarottoMarketplace: Address is not a contract"
         );
         require(
@@ -84,9 +89,9 @@ contract ERC721Bid is Ownable, Pausable {
         bytes memory _data
     ) external whenNotPaused returns (bytes4) {
         bytes32 bidId = _bytesToBytes32(_data);
-        uint256 bidIndex = bidIndexByBidId(bidId);
+        uint256 bidIndex = bidIndexByBidId[bidId];
 
-        Bid memory bid = _getBid(msg.sender, _tokenId, bidIndex);
+        AuctionLibrary.Bid memory bid = _getBid(msg.sender, _tokenId, bidIndex);
 
         require(
             bidId == bid.id && bid.expiresAt >= block.timestamp,
@@ -112,7 +117,7 @@ contract ERC721Bid is Ownable, Pausable {
         uint256 saleFeeAmount = 0;
         // Transfer fee to owner
         if (feePercentage > 0) {
-            saleFeeAmount = price.mul(feePercentage).div(PRECISION);
+            saleFeeAmount = price.mulDiv(feePercentage, PRECISION);
             require(
                 feeToken.transferFrom(bidder, owner(), saleFeeAmount),
                 "Transfer failed"
@@ -120,7 +125,7 @@ contract ERC721Bid is Ownable, Pausable {
         }
         // Transfer net amount to seller
         require(
-            feeToken.transferFrom(bidder, _from, price.sub(saleFeeAmount)),
+            feeToken.transferFrom(bidder, _from, price - saleFeeAmount),
             "Transfer failed"
         );
 
@@ -182,7 +187,7 @@ contract ERC721Bid is Ownable, Pausable {
             nftOwner != address(0) || nftOwner != msg.sender,
             "Invalid token"
         );
-        uint256 expiresAt = block.timestamp.add(_duration);
+        uint256 expiresAt = block.timestamp + _duration;
 
         bytes32 bidId = keccak256(
             abi.encodePacked(
@@ -202,12 +207,12 @@ contract ERC721Bid is Ownable, Pausable {
             (bidIndex, oldBidId, , , ) = getBidByBidder(
                 _tokenAddress,
                 _tokenId,
-                _bidder
+                msg.sender
             );
             delete bidIndexByBidId[oldBidId];
         } else {
             bidIndex = bidCounterByTokenAddress[_tokenAddress][_tokenId];
-            bidCounterByTokenAddress = bidCounterByTokenAddress.add(1);
+            bidCounterByTokenAddress[_tokenAddress][_tokenId]++;
         }
 
         // Set bid
@@ -243,7 +248,11 @@ contract ERC721Bid is Ownable, Pausable {
             uint256 expiresAt
         )
     {
-        Bid memory bid = _getBid(_tokenAddress, _tokenId, _bidIndex);
+        AuctionLibrary.Bid memory bid = _getBid(
+            _tokenAddress,
+            _tokenId,
+            _bidIndex
+        );
         return (bid.id, bid.bidder, bid.price, bid.expiresAt);
     }
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 library AuctionLibrary {
     struct Bid {
-        uint256 id;
+        bytes32 id;
         address bidder;
         address tokenAddress;
         uint256 tokenId;

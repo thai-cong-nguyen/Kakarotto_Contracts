@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
+import "lib/openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol";
+import "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
+import "lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
+import "lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol";
 
 import "./interfaces/IERC6551Account.sol";
 import "./interfaces/IERC6551Registry.sol";
 import "./interfaces/IERC6551Executable.sol";
-import "./interfaces/IRelationshipRegistry.sol";
-import "./interfaces/IRelationship.sol";
 
 contract KakarottoERC6551Account is
     IERC165,
     IERC1271,
     IERC6551Account,
     IERC6551Executable,
-    IERC721Receiver
+    IERC721Receiver,
+    IERC1155Receiver
 {
     uint256 public state;
 
@@ -37,6 +37,26 @@ contract KakarottoERC6551Account is
         bytes calldata data
     ) external returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
+    }
+
+    function onERC1155Received(
+        address operator,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    ) external returns (bytes4) {
+        return IERC1155Receiver.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(
+        address operator,
+        address from,
+        uint256[] calldata ids,
+        uint256[] calldata values,
+        bytes calldata data
+    ) external returns (bytes4) {
+        return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
     function execute(
